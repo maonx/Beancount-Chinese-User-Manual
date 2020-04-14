@@ -1,0 +1,18 @@
+#+TITLE: Beancount 中文用户手册
+#+DATE: [2020-04-14 周二]
+
+#+BEGIN_QUOTE
+本项目基于 [[http://furius.ca/beancount/doc/index][Beancount User's Manual]] ，因苦于 Beancount 的中文文档资料一直不是特别全面，所以目前开始利于 [[https://www.deepl.com/home][DeepL]] 翻译工具进行机翻，并稍加修饰已达到自用的目的。
+#+END_QUOTE
+
+* 用户文档
+这里是与Beancount相关的所有文档的目录页。
+
+- 文本中使用命令行记账：一篇启发性文档，解释了什么是命令行记账、我为什么要这么做和用一个简单的例子来说明我是怎么做的，可作为一篇简介来读。
+- 复式记账法：优雅地介绍复式记账法，与命令行记账系统所做的假设和简化相一致。
+- 安装 Beancount: 使用计算机下载和安装的说明，以及软件发布信息。
+
+
+
+
+
