@@ -2,6 +2,21 @@
 #+DATE: [2020-04-27 周一]
 #+AUTHOR: Martin Blais
 
+* 目录 :TOC:
+- [[#简介][简介]]
+- [[#导入过程][导入过程]]
+- [[#自动化网络下载][自动化网络下载]]
+- [[#典型下载][典型下载]]
+- [[#从-pdf-文件中提取数据][从 PDF 文件中提取数据]]
+- [[#工具][工具]]
+- [[#调用][调用]]
+- [[#配置][配置]]
+  - [[#从输入文件进行配置][从输入文件进行配置]]
+- [[#编写导入器][编写导入器]]
+  - [[#回归测你的导入器][回归测你的导入器]]
+  - [[#缓存数据][缓存数据]]
+- [[#整理你的文件][整理你的文件]]
+
 * 简介
 这是 Beancount 中的库和工具的用户手册，可以帮助您将外部交易数据自动导入到您的 Beancount 输入文件中，并管理您从金融机构网站下载的文件。
 
@@ -119,3 +134,112 @@ class Importer(importer.ImporterProtocol):
   #+END_SRC
 
   通常情况下，我在每个导入器的专用目录中创建导入器模块文件，这样我就可以将输入的示例文件全部放在该目录中进行回归测试。
+
+** 回归测你的导入器
+随着时间的推移，我发现回归测试是保持你的导入器代码正常工作的关键。导入器通常是针对没有官方规范的文件格式编写的，意外的惊喜经常发生。
+
+例如，我有一些 XML 文件中的一些未删减的"&"字符，只需要对该银行进行自定义修复。我还目睹过一家折扣券商在 MM/DD/YY 和 DD/MM/YY 之间切换日期格式；那个导入器现在需要能够处理这两种类型。
+
+所以你做了必要的调整，最后你发现有什么东西坏了；这不是很好。而且这个时间点特别让人讨厌：通常情况下，当你试图更新你的账本时，事情就会中断：你还有其他事情要做。
+
+测试这些导入器的最简单、最懒和最相关的方法是使用一些实际的数据文件，并将导入器从这些文件中提取的内容与预期的输出进行比较。要使导入器至少在一定程度上可靠，你真的需要能够在一些真实的输入上重现提取的结果。而且由于输入是如此不可预知的，而且定义不好，所以要想写出详尽的测试，对它们可能是什么，是不切实际的。
+
+在实践中，我每隔几个月至少要对一些导入器进行一些修正，有了这个过程，只需要沉下半个小时左右的时间。我将新下载的文件添加到导入器目录中，将导致破损的文件添加到导入器目录中，然后在本地运行它作为测试来修复代码。同时，我还在该目录下的所有之前下载的测试输入（新旧文件）上运行测试，以确保我的导入器在旧文件上仍能正常工作。
+
+在 ~beancount.ingest.regression~ 中，有一些支持自动化这个过程。我们需要的是一些例程，它将列出导入器的包目录，确定要用于测试的输入文件，并生成一套单元测试，将导入器方法产生的输出与放置在测试文件旁边的"预期文件"的内容进行比较。
+
+例如，给定一个具有导入器实现的软件包和两个示例输入文件:
+#+BEGIN_SRC example
+/home/joe/importers/acmebank/__init__.py   <- code goes here
+/home/joe/importers/acmebank/sample1.csv
+/home/joe/importers/acmebank/sample2.csv
+#+END_SRC
+
+你可以把这段代码放在 Python 模块中（__init__.py 文件）:
+#+BEGIN_SRC python
+from beancount.ingest import regression
+…
+def test():
+    importer = Importer(...)
+    yield from regression.compare_sample_files(importer)
+#+END_SRC
+
+如果你的 importer 覆盖了 ~extract()~ 和 ~file_date()~ 方法，这将生成四个单元测试，由 nosetests 自动运行:
+1. 一个在 sample1.csv 上调用 extract() 的测试，将提取的条目打印成一个字符串，并将这个字符串与 sample1.csv.extract.excel 中的内容进行比较
+2. 一个在 sample1.csv 上调用 ~file_date()~ 并将日期与 ~sample1.csv.file_date~ 文件中的日期进行比较的测试。
+3. 一个类似于(1)的测试，但是在 samplex2.csv 上的测试。
+4. 一个类似于(2)的测试，但是在 samplex2.csv 上的测试。
+
+*** 生成测试输入
+起初，包含预期输出的文件不存在。当预期的输出文件不存在时，回归测试会从提取的输出中自动生成这些文件。这将导致以下的文件列表:
+#+BEGIN_SRC example
+/home/joe/importers/acmebank/__init__.py   <- code goes here
+/home/joe/importers/acmebank/sample1.csv
+/home/joe/importers/acmebank/sample1.csv.extract
+/home/joe/importers/acmebank/sample1.csv.file_date
+/home/joe/importers/acmebank/sample2.csv
+/home/joe/importers/acmebank/sample2.csv.extract
+/home/joe/importers/acmebank/sample2.csv.file_date
+#+END_SRC
+
+你应该检查预期输出文件的内容，以确定它们代表了下载文件的内容。
+
+如果你在这些文件存在的情况下再次运行测试，预期输出文件将被用作测试的输入。如果以后的内容不同，测试将失败，并且会产生一个错误。(如果你想的话，你可以通过手动编辑并在其中一个文件中插入一些意想不到的数据来测试这个问题)。
+
+当你编辑你的源代码时，你可以随时重新运行测试，以确保它在那些旧文件上仍然有效。当一个新下载的文件失败时，你会重复上面的过程。你在那个目录下复制一个文件，修复导入器，运行它，检查预期的文件。就这样。
+
+*** 渐进式改进
+有时我对导入器进行了改进，导致即使是旧的文件也会产生更多或更好的输出，这样一来，所有的旧测试都会失败。处理这种情况的好方法是将所有这些文件都放在源码控制下，在本地删除所有预期的文件，然后运行测试再生新的文件，然后对照最近的提交进行 diff，检查更改是否符合预期。
+
+** 缓存数据
+有些二进制文件的数据转换可能会很费时间，而且速度很慢。这通常是将 PDF 文件转换为文本的情况。
+
+这是特别痛苦的，因为在提取我们下载的数据的过程中，我们通常要多次运行工具--如果一切正常工作，至少要运行两次：一次提取，两次转换为文件--如果有问题，通常要运行很多次。出于这个原因，我们希望这些转换进行缓存，这样就可以避免痛苦的 40 秒 PDF 到文本的转换，比如说，不需要运行两次。
+
+Beancount 旨在为下载文件的转换提供两级缓存:
+1. 转换的内存内缓存，以便多个请求相同转换的导入商只运行一次
+2. 一个磁盘上的转换缓存，这样可以重复使用多个工具的调用。
+
+*** 内存内缓存
+内存内缓存的工作原理是这样的。你的方法接收一个给定文件的 wrapper 对象，并调用 wrapper 的 convert() 方法，提供一个转换器的可调用/函数。
+#+BEGIN_SRC python
+class MyImporter(ImporterProtocol):
+    ...
+    def extract(self, file):
+        text = file.convert(slow_convert_pdf_to_text)
+        match = re.search(..., text)
+#+END_SRC
+
+这种转换是自动记忆的:如果两个导入器或两个不同的方法在文件上使用相同的转换器，转换只运行一次。这是一种在内存中处理冗余转换的简单方法。确保总是通过 ~.convert()~ 方法来调用那些，并共享转换器函数来利用这个优势。
+
+*** 磁盘上缓存
+此刻，Beancount 只实现了（1）。以后会实现盘上缓存。追踪此票的状态更新。
+
+* 整理你的文件
+本文档中描述的工具非常灵活，可以让您指定以下内容：
+- 导入配置：提供导入器对象列表作为配置的 Python 文件。
+- 导入器实现：实现单个导入器及其回归测试文件的 Python 模块。
+- 下载目录：下载的文件要在哪个目录中找到。
+- 文件目录：下载的文件要归档到哪个目录。
+
+你可以从你想要的任何位置指定这些。尽管如此，有些人经常会问如何组织他们的文件，所以我在 beancount/examples/ingest/office 下提供了一个模板示例，我在这里描述了一下。
+
+我建议大家按照这个结构创建一个 Git 或 Mercurial 仓库：
+#+BEGIN_SRC example
+office
+├── documents
+│   ├── Assets
+│   ├── Liabilities
+│   ├── Income
+│   └── Expenses
+├── importers
+│   ├── __init__.py
+│   └── …
+│       ├── __init__.py
+│       ├── sample-download-1.csv
+│       ├── sample-download-1.extract
+│       ├── sample-download-1.file_date
+│       └── sample-download-1.file_name
+├── personal.beancount
+└── personal.import
+#+END_SRC
