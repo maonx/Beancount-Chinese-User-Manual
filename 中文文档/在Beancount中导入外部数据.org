@@ -16,6 +16,13 @@
   - [[#回归测你的导入器][回归测你的导入器]]
   - [[#缓存数据][缓存数据]]
 - [[#整理你的文件][整理你的文件]]
+- [[#导入器实例][导入器实例]]
+- [[#清理][清理]]
+  - [[#自动分类][自动分类]]
+  - [[#清理收款人][清理收款人]]
+- [[#今后的工作][今后的工作]]
+- [[#相关的讨论主题][相关的讨论主题]]
+- [[#历史说明][历史说明]]
 
 * 简介
 这是 Beancount 中的库和工具的用户手册，可以帮助您将外部交易数据自动导入到您的 Beancount 输入文件中，并管理您从金融机构网站下载的文件。
@@ -243,3 +250,98 @@ office
 ├── personal.beancount
 └── personal.import
 #+END_SRC
+
+根目录"office"是你的存储库。它包含了你的分类账文件（"personal.beancount"）、你的导入器配置（"personal.import"）、你的自定义导入器源代码（"importers/"）和你的历史文档（"document/"），这些文件应该按 bean-file 组织好。你总是在这个根目录下运行命令。
+
+将你的文档和你的 importers 源代码存储在同一个仓库中的一个好处是，你可以将你的回归测试链接到 documents/目录下的一些文件。
+
+你可以通过运行 ~identif~ 来检查你的配置。
+#+BEGIN_SRC shell
+bean-identify example.import ~/Downloads
+#+END_SRC
+
+如果成功，你可以一次性从下载的文件中提取交易事务。
+#+BEGIN_SRC shell
+bean-extract -e example.beancount example.import ~/Downloads > tmp.beancount
+#+END_SRC
+
+然后打开 tmp.beancount 并将其内容移动到个人的个人 .beancount 文件中。
+
+完成后，你可以像这样把下载的文件藏起来，以备后人使用。
+#+BEGIN_SRC shell
+bean-file example.import ~/Downloads -o documents
+#+END_SRC
+
+如果我的导入器正常工作，我通常都不会去打开那些文件。你可以使用 --dry-run 选项来测试移动目的地，然后再进行测试。
+
+#+BEGIN_SRC shell
+pytest -v importers
+#+END_SRC
+
+要运行自定义导入器的回归测试，请使用以下命令。
+
+就我个人而言，我在根目录下有一个 Makefile，里面有这些目标，方便我的生活。注意，你必须安装 "pytest"，这是一个测试运行程序；它通常被打包成 "python3-pytest "或 "pytest"。
+
+* 导入器实例
+除了上面的文档，我还编了一个导入器例子，用于虚构投资账户的 CSV 文件格式。请看[[https://bitbucket.org/blais/beancount/src/tip/examples/ingest/office/importers/utrade/][这个目录]]。
+
+还有一个导入器的例子，它使用一个外部工具（PDFMiner2）将一个 PDF 文件转换为文本来识别它，并从中提取报表日期。请看[[https://bitbucket.org/blais/beancount/src/tip/examples/ingest/office/importers/acme/][这个目录]]。
+
+Beancount 还自带了一些非常基本的通用导入器。请看[[https://bitbucket.org/blais/beancount/src/tip/beancount/ingest/importers/][这个目录]]。
+- 有一个简单的 OFX 导入器对我来说已经工作了很长时间。虽然它很简单，但我已经用了好几年了，它足以从大多数信用卡账户中提取信息。
+- 还有一些混合类，你可以混入到你的导入器实现中，使其更方便；这些都是 LedgerHub 项目的遗物--你不需要使用它们--可以帮助过渡到它。
+
+最终，我计划在这个框架中构建并提供一个通用的 CSV 文件解析器，以及一个 QIF 文件解析器，应该可以让人从 Quicken 过渡到 Beancount。(我需要例子输入来做这个，如果你愿意分享你的文件，我可以用它来构建这个，因为我没有任何真正的输入，我不使用 Quicken。) 如果能从 GnuCash 中建立一个转换器也是很好的，这个也可以放在这里。
+
+* 清理
+** 自动分类
+一个经常被问到的问题，也是第一次使用的用户的共同想法，那就是 "如何给我导入的交易中只有一面的交易自动分配类别？" 例如，从信用卡账户导入交易，通常只提供一次发帖，像这样。
+#+BEGIN_SRC beancount
+2016-03-18 * "UNION MARKET"
+  Liabilities:US:CreditCard    -12.99 USD
+#+END_SRC
+
+对于这一点，你必须手动插入一个支出的帖子，像这样：
+#+BEGIN_SRC beancount
+2016-03-18 * "UNION MARKET"
+  Liabilities:US:CreditCard    -12.99 USD
+  Expenses:Food:Grocery
+#+END_SRC
+
+人们经常会有这样的印象，认为做这个事情很费时间。
+
+我的标准答案是，虽然这将会很有趣，但如果你有一个文本编辑器，并正确配置了账号名称完成，那么手动完成这项工作就会很轻松，你真的不需要它。你不会因为自动化而节省很多时间。而且就我个人而言，我喜欢翻看每一笔交易，检查它们是什么，有时会添加注释（例如，我和谁一起吃了晚餐，亚马逊的那笔费用是什么，等等），这时我就会进行分类。
+
+这个问题最终可以通过让用户提供一些简单的规则来解决，或者通过使用过去交易的历史记录来创建一个简单的学习分类器来解决。
+
+Beancount 目前没有提供自动分类交易的机制。你可以在你的导入器代码中构建这个机制。我想为用户提供一个钩子，让用户注册一个完成函数，这个函数可以在所有的导入器中运行，你可以将代码钩入其中。
+
+** 清理收款人
+下载中能找到的付费者，一般都是难看的名字：
+- 它们有时是商家的法定名称，由于各种原因，往往不能反映出你去的地方的街道名称。比如，我最近在纽约一家叫 "幸运蜜蜂 "的餐厅吃饭，从 ofx 文件中看到的备忘录是 "KING BEE"。
+- 这些名字有时候是缩写，或者含有一些粗体字。在前面的例子中，实际的备忘录是 "KING BEE NEW YO"，其中 "NEW YO "是一个被截断的位置字符串。
+- 不同数据源之间的丑化量是不一致的。
+
+如果能够在导入时通过翻译收款人名来规范化就好了。我认为你可以使用一些简单的规则将正则表达式映射到用户提供的名称，就可以做到大部分。真的没有什么好的自动化方法来获取收款人的 "干净的名字"。
+
+Beancount 还没有提供一个让你这样做的钩子。最终会有的。你也可以建立一个插件，在加载分类账时重命名这些账户。我也会建立这个插件--这很简单，而且输出效果会更好。
+
+* 今后的工作
+除了强化已有的东西之外，我还想增加一些东西：
+- 一个通用的、可配置的 CSV 导入器，你可以实例化。我计划用这个来玩一下，然后建立一个嗅探器，可以自动找出每个列的作用。
+- 一个钩子，允许你注册一个回调，用于后处理交易的回调，可以在所有的导入器中工作。
+
+* 相关的讨论主题
+- [[https://groups.google.com/forum/#!msg/ledger-cli/u648SA1o-Ek/DzZmu8wVCAAJ][入门；将账户分配到银行的csv数据中]]
+- [[https://groups.google.com/d/msg/beancount/qFZvGBLuJos/WSaNY0sEc-wJ][LedgerHub的状态...........我该如何开始？]]
+- [[https://groups.google.com/d/msg/ledger-cli/n_WNc-tZabU/sh09irl-C-kJ][Rekon 需要您的 CSV 文件]]
+
+* 历史说明
+曾经有一个第一次实现本文描述的过程。这个项目叫 LedgerHub，在 2016 年 2 月已经退役了，重写后的代码被集成到这个[[https://bitbucket.org/blais/beancount/src/tip/src/python/beancount/ingest/][beancount.ingest]]库中，并将其集成到 Beancount 本身的代码中。
+
+最初的项目是想包括各种导入器的实现，以便与其他人分享，但这种分享并不是很成功，所以重写后只包括了构建自己的导入器和调用这些导入器的脚手架，并且只包含了数量非常有限的导入器实现示例。
+
+关于 LedgerHub 的文档被保留了下来，可以帮助你了解 Beancount 的导入器支持的起源和设计选择。您可以在这里找到它们：
+- [[http://furius.ca/beancount/doc/ledgerhub/design-doc][原创设计]]
+- [[http://furius.ca/beancount/doc/ledgerhub/manual][原始说明及最终状态]]（本文件旧版）。
+- [[http://furius.ca/beancount/doc/ledgerhub/postmortem][分析项目被终止的原因 ]](项目总结)
