@@ -1,0 +1,73 @@
+#+TITLE: Beancount入门教程
+#+DATE: [2020-05-03 周日]
+#+AUTHOR: Martin Blais
+
+* 目录 :TOC:
+- [[#简介][简介]]
+- [[#编辑器支持][编辑器支持]]
+  - [[#emacs][Emacs]]
+  - [[#vim][Vim]]
+  - [[#sublime][Sublime]]
+- [[#创建你的第一个输入文件][创建你的第一个输入文件]]
+- [[#简明语法概述][简明语法概述]]
+- [[#验证你的文件][验证你的文件]]
+
+* 简介
+这篇文档是一个优雅的指南，指导你创建第一个 Beancount 文件，用一些选项对其进行初始化，一些关于如何组织你的文件的指南，以及声明账户并确保其初始余额不会产生错误的说明。它还包含了一些关于配置 Emacs 文本编辑器的资料，如果你使用 Emacs 的话。
+
+你可能会想先阅读一些[[http://furius.ca/beancount/doc/users-manual][用户手册]]，以便熟悉语法和可用指令的种类，如果你已经设置了一个文件或知道如何做的话，可以继续阅读[[http://furius.ca/beancount/doc/cookbook][食谱]]。如果你熟悉 Ledger，你可能想先了解一下[[http://furius.ca/beancount/doc/comparison][Ledger和Beancount的区别]]。
+
+* 编辑器支持
+** Emacs
+首先，你需要对你的文本编辑器有一定的支持。我使用的是 Emacs，所以我将解释一下我的设置，当然你也可以使用任何文本编辑器来编译你的输入文件。
+
+Beancount 的 Emacs 支持特意提供了一个 Minor Mode（相对于 Major Mode），这样你就可以把它和你喜欢的文本编辑模式结合起来。我喜欢使用 Org-Mode，这是 Emacs 的一个大纲模式，它允许你折叠和展开它的部分来查看文档的大纲。这使得编辑一个非常长的文本文件更加容易。(我不使用 Org-Mode 的字面编程块，我只用它来折叠和展开文本的部分)。
+
+你可以将 Emacs 配置为自动打开带有".beancount "扩展名的文件，通过在你的 ~/.emacs 文件中添加这样的代码来启用 beancount-mode。
+#+BEGIN_SRC elisp
+(add-to-list 'load-path "/path/to/beancount/src/elisp")
+(require 'beancount)
+(add-to-list 'auto-mode-alist '("\\.beancount\\'" . beancount-mode))
+#+END_SRC
+
+[[https://bitbucket.org/blais/beancount/src/tip/editors/emacs/beancount.el][Beancount-mode]]提供了一些不错的编辑功能：
+- 为了快速无痛地插入账户名称，你需要在账户名称上完成。如果你没有完成，你可能会因为输入的时候没有完成而感到沮丧。Beancount-mode 会自动识别输入文件中已经存在的账户名（用 "C-c r "刷新列表），你可以用 "C-c '"插入一个新的账户名。
+- 将交易中的金额对齐也很好；这个格式化可以用 "C-c ; "自动完成，光标在你想对齐的交易上，可以自动完成。
+
+** Vim
+Nathan Grigg 在这个 github repo 中实现了对 vim 的支持。它支持：
+- 语法高亮显示（并非详尽无遗，但都是基本的。
+- 帐户名称完成（使用全能型、C-X C-O）。
+- 使小数点在交易中保持一致(:AlignCommodity)
+
+** Sublime
+对 [[https://sublime.wbond.net/packages/Beancount][Sublime 编辑]]的支持是由 [[https://groups.google.com/d/msg/beancount/WvlhcCjNl-Q/s4wOBQnRVxYJ][Martin Andreas Andersen]] 贡献的。参见他的 [[https://github.com/draug3n/sublime-beancount][github repo]]。
+
+* 创建你的第一个输入文件
+为了开始操作，让我们创建一个最小的输入文件，里面有两个账户和一个交易。输入或复制以下输入到一个文本文件中:
+#+BEGIN_SRC beancount
+2014-01-01 open Assets:Checking
+2014-01-01 open Equity:Opening-Balances
+
+2014-01-02 * "Deposit"
+  Assets:Checking           100.00 USD
+  Equity:Opening-Balances
+#+END_SRC
+
+* 简明语法概述
+一些注意事项和 Beancount 语法的超简单概述。
+- 货币必须完全使用大写字母（允许使用数字和一些特殊字符，如"_"或"-"）。不支持货币符号（如$或€）。
+- 帐户名称不允许使用空格（虽然可以使用破折号），并且必须至少有两个组成部分，用冒号隔开。
+- 描述字符串必须使用引号，如："AMEX PMNT"。
+- 日期只能以 ISO8601 格式解析，即 YYYY-MM-DD。
+- 标签必须以 "#"开头，链接必须以"^"开头。
+
+有关语法的完整描述，请访问[[http://furius.ca/beancount/doc/users-manual][用户手册]]。
+
+* 验证你的文件
+Beancount 的目的是为了从你的输入文件中生成报告（可以在控制台中，也可以通过它的 Web 界面服务）。然而，有一个工具可以让你简单地加载它的内容，并对其进行一些验证检查，以确保你的输入不包含错误。Beancount 可以是相当严格的；这是你在输入数据时使用的一个工具，确保你的输入文件是合法的。这个工具叫做 "bean-check"，你可以这样调用它：
+#+BEGIN_SRC shell
+bean-check /path/to/your/file.beancount
+#+END_SRC
+
+现在在上一节中创建的文件上试试。它应该会在没有输出的情况下退出。如果有错误，它们将被打印在控制台上。这些错误会以 Emacs 默认识别的格式打印出来，所以你可以使用 Emacs 的下一个错误和上一个错误内置函数将光标移动到问题的位置。
