@@ -15,6 +15,8 @@
 - [[#如何组织你的文件][如何组织你的文件]]
   - [[#给你的输入文件加入序言][给你的输入文件加入序言]]
   - [[#部分和账户申报][部分和账户申报]]
+  - [[#结算账户][结算账户]]
+  - [[#解除冗余][解除冗余]]
 - [[#footnotes][Footnotes]]
 
 * 简介
@@ -106,8 +108,45 @@ option "operating_currency" "CAD"
 2007-02-01 open Income:US:BofA:Savings:Interest  USD
 #+end_example
 
-我喜欢尽可能多地声明货币约束，以避免错误。此外，请注意我如何声明一个收入计数具体到这个帐户。这有助于在报税时分解收入，因为你可能会收到与该特定帐户的收入有关的税务文件（在
-美国这将是一个由您的银行生成的 =1099-INT= 表格）
+我喜欢尽可能多地声明货币约束，以避免错误。此外，请注意我如何声明一个收入计数具体到这个帐户。这有助于在报税时分解收入，因为你可能会收到与该特定帐户的收入有关的税务文件（在美国这将是一个由您的银行生成的 =1099-INT= 表格）
+
+下面是一个投资账户的开立账户可能的样子：
+#+begin_example
+2012-03-01 open Assets:US:Etrade:Main:Cash            USD
+2012-03-01 open Assets:US:Etrade:Main:ITOT            ITOT
+2012-03-01 open Assets:US:Etrade:Main:IXUS            IXUS
+2012-03-01 open Assets:US:Etrade:Main:IEFA            IEFA
+2012-03-01 open Income:US:Etrade:Main:Interest        USD
+2012-03-01 open Income:US:Etrade:Main:PnL             USD
+2012-03-01 open Income:US:Etrade:Main:Dividend        USD
+2012-03-01 open Income:US:Etrade:Main:DividendNoTax   USD
+#+end_example
+
+关键是所有这些账户都有一定的联系。本手册的各个部分将描述建议为每个部分创建一组账户。
+并非所有章节都必须如此。例如，我有以下几个部分：
+ - 固定账户。我在顶部有一个部分专门包含特殊和“固定”的账户，如应付款和应收款。
+ - 日记本。我在底部有一个“日记”部分，包含所有现金支出，按时间顺序排列。
+ - 支出账户。我所有的支出账户（类别）都被定义在他们自己的部分。
+ - 雇主。对于每个雇主，我都定义了一个部分，把他们的直接存款条目放在那里，并跟踪休假、股票归属和其他与工作有关的交易。
+ - 税收。我有一个关于税收的部分，按税收年度组织。
+你可以以任何方式组织它，因为 Beancount 并不关心声明的顺序。
+
+** 结算账户
+如果一个真实世界的账户已经关闭，或者永远不会有更多的交易过账到它上面，你可以使用 Close 指令在特定的日期声明它“关闭”:
+#+begin_example
+; 转移到了其它银行
+2013-06-13 close Assets:US:BofA:Savings
+#+end_example
+这告诉 Beancount 不要在报告中显示该帐户，因为报告中不包括该帐户活动的任何日期。它还可以避免错误，如果您以后试图将错误发布到它上面，就会触发错误。
+
+** 解除冗余
+一个经常发生的问题是，一旦你设置了[[file:在Beancount中导入外部数据.org][某种代码或程序]]来自动从下载的文件中提取过账，你最终会导入提供同一交易的两个不同方面的过账。一个例子是通过从支票账户转账支付信用卡余额。如果你下载你的支票账户的交易，你会提取类似这样的东西：
+#+begin_example
+2014-06-08 * "ONLINE PAYMENT - THANK YOU"
+  Assets:CA:BofA:Checking           -923.24 USD
+#+end_example
+信用卡的下载会给你带来这些
+
 
 * Footnotes
 
