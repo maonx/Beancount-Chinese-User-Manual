@@ -3,7 +3,7 @@
 #+AUTHOR: Martin Blais
 
 #+BEGIN_QUOTE
-本项目基于 [[http://furius.ca/beancount/doc/index][Beancount User's Manual]] ，因苦于 Beancount 的中文文档资料一直不是特别全面，所以目前开始利于 [[https://www.deepl.com/home][DeepL]] 翻译工具进行机翻，并稍加修饰已达到自用的目的。
+本项目基于 [[http://furius.ca/beancount/doc/index][Beancount User's Manual]] ，因苦于 Beancount 的中文文档资料一直不是特别全面，所以目前开始利于 [[https://www.deepl.com/home][DeepL]] 、[[https://fanyi.caiyunapp.com/#/][彩云小译]] 翻译工具进行机翻，并稍加修饰已达到自用的目的。
 #+END_QUOTE
 
 * 用户文档
@@ -44,7 +44,12 @@
 - 外部贡献。基于 Beancount 库的插件、导入程序和其他代码的列表，其他人已经创建和共享了这些代码。
 
 * 优化建议及讨论
-TODO
+我偶尔会写一些关于改进的建议，以便整理和总结我的想法，这是一个很好的材料，可以帮助你了解我计划添加的功能，事情的细节，或者与其他类似的功能进行比较软件，例如 Ledger 或 HLedger。
+- 改进库存预订的建议：在这份提案中，我概述了 Ledger 和 Beancount 中关于库存预订的现状以及一种更好的方法，它将支持平均成本预订和计算无佣金的资本收益。
+- Beancount 中的结算日期：讨论如何在 Beancount 中使用结算或辅助日期，以及如何在 Ledger 中使用它们。
+- Beancount 中的平衡断言：总结了 Beancount 和 Ledger 中提出余额断言的不同语义，并建议扩展 Beancount 的语法以支持更复杂的断言。
+- 用 Beancount 进行基金会计：关于基金会计的讨论以及如何最好地使用 Beancount 在一个单一的分类账中跟踪多个基金。
+- Beancount 的舍入与精确度：讨论平衡检查的重要舍入和精确度问题，并提出一种更好的方法来推断所需的精确度。（已实施）
 
 * 外部链接
 - 其他作者写的关于 Beancount 的文档、链接、博客条目、文章等。
