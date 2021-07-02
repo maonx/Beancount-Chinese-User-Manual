@@ -14,10 +14,12 @@
 - [[#查看网页界面][查看网页界面]]
 - [[#如何组织你的文件][如何组织你的文件]]
   - [[#给你的输入文件加入序言][给你的输入文件加入序言]]
-  - [[#部分和账户申报][部分和账户申报]]
+  - [[#部分和账户声明][部分和账户声明]]
   - [[#结算账户][结算账户]]
   - [[#解除冗余][解除冗余]]
-- [[#footnotes][Footnotes]]
+  - [[#哪一边][哪一边]]
+  - [[#填充][填充]]
+  - [[#下一步是什么][下一步是什么？]]
 
 * 简介
 这篇文档是一个优雅的指南，指导你创建第一个 Beancount 文件，用一些选项对其进行初始化，一些关于如何组织你的文件的指南，以及声明账户并确保其初始余额不会产生错误的说明。它还包含了一些关于配置 Emacs 文本编辑器的资料，如果你使用 Emacs 的话。
@@ -91,27 +93,27 @@ bean-web /path/to/your/file.beancount
 在这一节中，我们提供了如何组织文件的一般准则。假定你已经阅读了[[http://furius.ca/beancount/doc/syntax][语法文档]]。
 
 ** 给你的输入文件加入序言
-我建议你只从一个文件开始[fn:1]，我的文件有一个文件头，告诉 Emacs 用什么模式打开文件，后面是一些常用的选项:
-#+begin_example
+我建议你只从一个文件开始（想把一个大文件分解成许多小文件是很诱人的，但特别是在一开始，把所有东西都放在一个地方才是最便利的。），我的文件有一个文件头，告诉 Emacs 用什么模式打开文件，后面是一些常用的选项:
+#+begin_src beancount
 ;; -*- mode: beancount; coding: utf-8; fill-column: 400; -*-
 option "title" "My Personal Ledger"
 option "operating_currency" "USD"
 option "operating_currency" "CAD"
-#+end_example
+#+end_src
 
 标题选项在报告中使用。“操作货币”列表确定那些你最常使用的商品作为 “货币”，并且在报告中的专用列中呈现（这个声明对任何计算的行为没有其他影响）。
 
-** 部分和账户申报
+** 部分和账户声明
 我喜欢将输入文件按照与每个现实帐户相对应的部分进行组织。每个部分使用 =Open= 指令定义与这个现实世界帐户相关的所有帐户。例如，这是一个支票账户:
-#+begin_example
+#+begin_src beancount
 2007-02-01 open Assets:US:BofA:Savings           USD
 2007-02-01 open Income:US:BofA:Savings:Interest  USD
-#+end_example
+#+end_src
 
 我喜欢尽可能多地声明货币约束，以避免错误。此外，请注意我如何声明一个收入计数具体到这个帐户。这有助于在报税时分解收入，因为你可能会收到与该特定帐户的收入有关的税务文件（在美国这将是一个由您的银行生成的 =1099-INT= 表格）
 
 下面是一个投资账户的开立账户可能的样子：
-#+begin_example
+#+begin_src beancount
 2012-03-01 open Assets:US:Etrade:Main:Cash            USD
 2012-03-01 open Assets:US:Etrade:Main:ITOT            ITOT
 2012-03-01 open Assets:US:Etrade:Main:IXUS            IXUS
@@ -120,7 +122,7 @@ option "operating_currency" "CAD"
 2012-03-01 open Income:US:Etrade:Main:PnL             USD
 2012-03-01 open Income:US:Etrade:Main:Dividend        USD
 2012-03-01 open Income:US:Etrade:Main:DividendNoTax   USD
-#+end_example
+#+end_src
 
 关键是所有这些账户都有一定的联系。本手册的各个部分将描述建议为每个部分创建一组账户。
 并非所有章节都必须如此。例如，我有以下几个部分：
@@ -133,21 +135,122 @@ option "operating_currency" "CAD"
 
 ** 结算账户
 如果一个真实世界的账户已经关闭，或者永远不会有更多的交易过账到它上面，你可以使用 Close 指令在特定的日期声明它“关闭”:
-#+begin_example
+#+begin_src beancount
 ; 转移到了其它银行
 2013-06-13 close Assets:US:BofA:Savings
-#+end_example
+#+end_src
 这告诉 Beancount 不要在报告中显示该帐户，因为报告中不包括该帐户活动的任何日期。它还可以避免错误，如果您以后试图将错误发布到它上面，就会触发错误。
 
 ** 解除冗余
 一个经常发生的问题是，一旦你设置了[[file:在Beancount中导入外部数据.org][某种代码或程序]]来自动从下载的文件中提取过账，你最终会导入提供同一交易的两个不同方面的过账。一个例子是通过从支票账户转账支付信用卡余额。如果你下载你的支票账户的交易，你会提取类似这样的东西：
-#+begin_example
+#+begin_src beancount
 2014-06-08 * "ONLINE PAYMENT - THANK YOU"
   Assets:CA:BofA:Checking           -923.24 USD
-#+end_example
-信用卡的下载会给你带来这些
+#+end_src
 
+信用卡的下载会给你带来这些：
+#+begin_src beancount
+2014-06-10 * "AMEX EPAYMENT    ACH PMT"
+  Liabilities:US:Amex:Platinum       923.24 USD
+#+end_src
 
-* Footnotes
+很多时候，这些账户的交易需要记入费用账户，但在这种情况下，这些是同一笔交易的两个独立的部分：转账。当你导入其中一个时，你通常会寻找另一边并将它们合并在一起。
+#+begin_src beancount
+;2014-06-08 * "ONLINE PAYMENT - THANK YOU"
+2014-06-10 * "AMEX EPAYMENT    ACH PMT"
+  Liabilities:US:Amex:Platinum       923.24 USD
+  Assets:CA:BofA:Checking           -923.24 USD
+#+end_src
 
-[fn:1] 想把一个大文件分解成许多小文件是很诱人的，但特别是在一开始，把所有东西都放在一个地方才是最便利的。
+我经常在注释中留下一行描述ーー仅仅是我的选择，Beancount 会忽略了它。还要注意的是，我必须从两个日期中选择一个。我会选择一个我喜欢的，只要它不打破任何平衡断言。
+
+如果你忘记了合并这两个导入的事务，不用担心！这就是平衡断言的作用。定期在这些帐户中放置一个余额断言，例如，每次导入时，如果最终输入两次事务，就会得到一个漂亮的错误。这是非常常见的，过一段时间后，解释编译器错误并在几秒钟内修复它就成了第二天性。
+
+最后，当我知道我只导入其中的一方时，我手动选择另一个账户，并在我知道稍后将导入的过账上标记一个标志，这告诉我我还没有去掉这个交易。
+#+begin_src beancount
+2014-06-10 * "AMEX EPAYMENT    ACH PMT"
+  Liabilities:US:Amex:Platinum       923.24 USD
+  ! Assets:CA:BofA:Checking
+#+end_src
+
+稍后，当我导入支票账户的交易并去寻找这笔款项的另一方时，我会发现这一点，并获得一种良好的感觉，即世界正在按照它应该的方式运作。
+（如果你对围绕去除重复和合并交易的更多讨论感兴趣，请看这个[[http://furius.ca/beancount/doc/proposal-dates][功能建议]]。另外，你可能对外部贡献的 "[[https://github.com/redstreet/beancount_plugins_redstreet][effective_date]]" 插件感兴趣，该插件将交易一分为二）。
+
+** 哪一边
+那么，如果你按照我上面建议的方式来组织你的账户，你应该把这种“合并”的交易留在文件的哪一部分，也就是说，涉及两个独立账户的交易？嗯，你说了算。例如，如果是两个账户之间的转账，它们有各自专门的部分，如果能把两个交易都留在那里就好了，这样当你编辑输入文件时，就能在任何一个部分看到它们，但不幸的是，交易必须在你的文件中只出现一个地方。你必须选择一个。 就我个人而言，我有点粗心大意，不知道我选择把交易留在哪个部分；有时我选择我的输入文件的一个部分，或另一个账户的部分，用于同一对账户。这不是问题，因为我经常使用 Emacs 和 i-search ，这使得我很容易在巨大的输入文件中查找。如果你想让你的输入文件更加整洁和有条理，你可以为自己制定一个规则，例如“信用卡付款总是留在付款账户的部分，而不是信用卡账户的部分”，或者你可以把交易留在两个部分，然后注释掉一个（有些人建议 Beancount 根据启发式方法自动检测重复的交易，并自动忽略（删除）其中的一个，但这还没有被尝试。特别是，这可以很好地组织交易，不仅仅是在每个部分，而是在单独的文件中，也就是说，所有文件将包含它们所代表的账户的所有交易。如果你对增加这一功能感兴趣，你可以很容易地把它作为一个插件来实现，而不会破坏系统的其他部分。）
+
+** 填充
+如果你才刚刚起步（如果你正在读这篇文章，你很可能正在起步）你将没有任何历史数据。这意味着你在 Beancount 的资产和负债账户的余额都将为零。但是，在定义了一些账户之后，你首先要做的是建立一个资产负债表，并将这些金额调整到它们当前的实际价值。
+
+让我们以你的支票账户为例，比如说你在前一段时间开立了这个账户。你不记得确切的时间，所以让我们用一个大概的日期：
+#+begin_src beancount
+2000-05-28 open Assets:CA:BofA:Checking  USD
+#+end_src
+
+接下来你要做的是查询你目前的余额，并为相应的金额提出一个余额断言：
+#+begin_src beancount
+2014-07-01 balance Assets:CA:BofA:Checking    1256.35 USD
+#+end_src
+
+在此基础上运行 Beancount 会正确地产生一个错误，因为 Beancount 假定在你开立账户时有一个隐式的余额断言为“空”。你将不得不通过在开户和余额之间的某个时间点插入余额调整，将你的账户“填充”到今天的余额，而这个账户是一个任意的地方，用来记录 "你从哪里得到初始余额"。因此，这通常是 `Equity:Opening-Balances` 账户。好了让我们把这个填充交易包括在内，并回顾一下我们到目前为止的情况：
+#+begin_src beancount
+2000-05-28 open Assets:CA:BofA:Checking  USD
+
+2000-05-28 * "Initialize account"
+  Equity:Opening-Balances                    -1256.35 USD
+  Assets:CA:BofA:Checking                     1256.35 USD
+
+2014-07-01 balance Assets:CA:BofA:Checking    1256.35 USD
+#+end_src
+
+从这里开始，您将开始添加7月1日之后发生的一切的条目。然而，如果您想回到过去呢？一旦您建立了您的账户表，您可能想填补至少到今年年初的历史遗漏，这是完全合理的。
+我们假设你在2014年6月有一笔交易，让我们把它加进去：
+#+begin_src beancount
+2000-05-28 open Assets:CA:BofA:Checking  USD
+
+2000-05-28 * "Initialize account"
+  Equity:Opening-Balances                    -1256.35 USD
+  Assets:CA:BofA:Checking                     1256.35 USD
+
+2014-06-28 * "Paid credit card bill"
+  Assets:CA:BofA:Checking                     -700.00 USD
+  Liabilities:US:Amex:Platinum                 700.00 USD
+
+2014-07-01 balance Assets:CA:BofA:Checking    1256.35 USD
+#+end_src
+
+现在，平衡断言失败了！你需要调整初始化条目来解决这个问题。
+#+begin_src beancount
+2000-05-28 open Assets:CA:BofA:Checking  USD
+
+2000-05-28 * "Initialize account"
+  Equity:Opening-Balances                    -1956.35 USD
+  Assets:CA:BofA:Checking                     1956.35 USD
+
+2014-06-28 * "Paid credit card bill"
+  Assets:CA:BofA:Checking                     -700.00 USD
+  Liabilities:US:Amex:Platinum                 700.00 USD
+
+2014-07-01 balance Assets:CA:BofA:Checking    1256.35 USD
+#+end_src
+
+现在这个方法起作用了。因此基本上，每次您插入过去的条目时，您都必须调整余额。这不是很烦人吗？是的。
+
+幸运的是，我们可以提供一些帮助: 你可以使用 `Pad` 指令来替换并自动合成平衡调整以匹配下一个平衡断言，如下所示：
+#+begin_src beancount
+2000-05-28 open Assets:CA:BofA:Checking  USD
+
+2000-05-28 pad Assets:CA:BofA:Checking Equity:Opening-Balances
+
+2014-06-28 * "Paid credit card bill"
+  Assets:CA:BofA:Checking                     -700.00 USD
+  Liabilities:US:Amex:Platinum                 700.00 USD
+
+2014-07-01 balance Assets:CA:BofA:Checking    1256.35 USD
+#+end_src
+
+请注意，这只适用于资产负债表账户（资产和负债），因为我们不关心收入和支出账户的初始余额，我们只关心它们的过渡性价值（它们在一个时期的变化）。例如，把 `Expenses:Restaurant` 账户调整到你出生以来所消费的所有餐饮费用的总和，是没有意义的。
+因此，您可能希望开始使用每个资产和负债账户的 Open & Pad 指令。
+
+** 下一步是什么？
+到这里，你可以继续阅读《[[http://furius.ca/beancount/doc/cookbook][食谱]]》，或者阅读《[[http://furius.ca/beancount/doc/users-manual][用户手册]]》，如果你还没有读过。
