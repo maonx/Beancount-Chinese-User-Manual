@@ -1,0 +1,194 @@
+#+TITLE: Beancount 语言语法
+#+DATE: [2021-07-02 周五]
+#+AUTHOR: Martin Blais
+
+* 目录 :TOC:
+- [[#简介][简介]]
+- [[#语法概述][语法概述]]
+  - [[#指令][指令]]
+  - [[#账户][账户]]
+  - [[#商品--货币][商品 / 货币]]
+  - [[#字符串][字符串]]
+  - [[#注释][注释]]
+- [[#指令-1][指令]]
+  - [[#open][Open]]
+
+* 简介
+这是一本关于 Beancount 语言的用户手册，它是命令行复式记账系统。Beancount 定义了一种计算机语言，允许你在文本文件中输入财务交易，并从中提取各种报告。它是一种通用的计数工具，可用于多种货币、按成本持有的商品（如股票），甚至允许你跟踪不寻常的东西，如假期时间、航空里程和奖励积分，以及其他任何你可能想要计算的东西，甚至是豆子。
+
+本文介绍了 Beancount 的语法和一些必要的技术细节，以便人们了解它是如何进行计算的。本文件不提供复式记账法的介绍，也不提供在输入文件中输入交易的例子和指南，更不提供如何运行工具。这些主题都有自己的专门文件，建议你在进入本用户手册之前，先看一下这些文件。本手册涵盖了使用 Beancount 的技术细节。
+
+* 语法概述
+** 指令
+Beancount 是一种声明性语言。输入由一个文本文件组成，主要包含一系列指令或条目(我们在代码和文档中可交替地使用这些术语) ; 还有用于定义各种选项的语法。每个指令都以一个关联的日期开始，该日期确定指令将应用的时间点，以及它的类型，该类型定义该指令代表的事件类型。所有的指令都以这样的语法开头:
+#+begin_src beancount
+YYYY-MM-DD <type> ...
+#+end_src
+
+其中 YYYY 为年份，MM 为数字月份，DD 为数字日期。所有数字都是必需的，例如，2007年5月7日应该是“2007-05-07”，包括它的零。Beancount 支持使用破折号(如“2014-02-03”)或斜杠相同顺序(如“2014/02/03”)的国际 iso8601 标准格式。
+
+这里有一些指令的例子，只是为了给你一个美学的概念:
+#+begin_src beancount
+2014-02-03 open Assets:US:BofA:Checking
+2014-04-10 note Assets:US:BofA:Checking "Called to confirm wire transfer."
+2014-05-02 balance Assets:US:BofA:Checking   154.20 USD
+#+end_src
+
+经过解析的输入文件的最终结果是数据结构中这些条目的简单列表。在 Beancount 的所有操作都是在这些条目上进行的。
+
+每个特定的指令类型都在下面的章节中有记录。
+
+*** 指令顺序
+指令的声明顺序并不重要。实际上，在解析之后和处理之前，会按时间顺序对条目进行重新排序。这是该语言的一个重要特性，因为它使您可以按照自己喜欢的方式组织输入文件，而不必担心会影响指令的含义。
+
+除了交易之外，每个指令都假定发生在每天的开始。例如，你可以声明一个账户在第一次交易的同一天开立:
+#+begin_src beancount
+2014-02-03 open Assets:US:BofA:Checking
+
+2014-02-03 * "Initial deposit"
+  Assets:US:BofA:Checking         100 USD
+  Assets:Cash                    -100 USD
+#+end_src
+
+然而，如果你假设立即关闭该账户，你不能在同一天声明关闭，你必须将日期延后，在 02-04 声明关闭。
+#+begin_src beancount
+2014-02-04 close Assets:US:BofA:Checking
+#+end_src
+
+这也解释了为什么在同一日期发生的任何交易之前要验证余额断言。这是为了保持一致性。
+
+** 账户
+Beancount 将商品积累在账户中。这些账户的名称在文件中使用前不需要声明，仅凭其语法就可以被识别为 "账户"。账户名称是一个用冒号分隔的大写单词列表，以字母开头，其第一个单词必须是五个账户类型中的一个：
+（ *请注意* ：存在一个"Open"指令，用于提供每个帐户的开始日期。它可以位于文件中的任何位置，因此在使用帐户名之前，它不必出现在文件的某个地方。你可以马上开始在交易中使用帐户名，尽管所有接收到他们的帐户名最终都必须有一个相应的 Open 指令，该指令的日期在所有交易之前。）
+#+begin_src beancount
+Assets
+Liabilities
+Equity
+Income
+Expenses
+#+end_src
+
+账户名称的每个组成部分都以大写字母或数字开头，后面是字母、数字或破折号（-）字符。所有其他字符是不允许的。
+
+下面是一些现实的账户名称例子：
+#+begin_src beancount
+Assets:US:BofA:Checking
+Liabilities:CA:RBC:CreditCard
+Equity:Retained-Earnings
+Income:US:Acme:Salary
+Expenses:Food:Groceries
+#+end_src
+
+在一个输入文件中看到的所有账户名称的集合隐含地定义了一个账户的层次结构（有时称为账户图表），类似于文件系统中的文件组织方式。例如，以下账户名称：
+#+begin_src beancount
+Assets:US:BofA:Checking
+Assets:US:BofA:Savings
+Assets:US:Vanguard:Cash
+Assets:US:Vanguard:RGAGX
+Assets:Receivables
+#+end_src
+
+隐式地声明了一个账户树，看起来像这样：
+#+begin_example
+`-- Assets
+    |-- Receivables
+    `-- US
+        |-- BofA
+        |   |-- Checking
+        |   `-- Savings
+        `-- Vanguard
+            |-- Cash
+            `-- RGAGX
+#+end_example
+
+我们会说，"Assets:US:BofA "是 "Assets:US:BofA:Checking "的父账户，而后者是前者的子账户。
+
+** 商品 / 货币
+账户包含货币，我们有时也称其为商品（这两个词我们可以互换使用）。与账户名称一样，货币名称也是通过其语法来识别的，不过，与账户名称不同的是，它们在使用前不需要声明。货币的语法是一个全部用大写字母表示的词，如以下所示：
+#+begin_src beancount
+USD
+CAD
+EUR
+MSFT
+IBM
+AIRMILE
+#+end_src
+
+(从技术上讲，一个货币名称可以长达24个字符，必须以大写字母开头，必须以大写字母或数字结尾，其他字符必须只是大写字母、数字或限于这些字符的标点符号: ='._-= (单引号，句号，下划线，破折号)
+
+前三种可能会让你想起真实世界的货币(美元、加元、欧元)，接下来的两种可能是股票代码(微软和 IBM)，最后一项: 奖励积分(航空里程)。Beancount 不知道这样的事情，从它的角度来看，所有这些工具都被类似的对待。不存在任何先前存在的货币的内在概念。这些货币名称只是“物品”的名称，可以放在账户中，并在与这些账户相关的库存中积累。
+
+没有“特殊”的货币单位，所有商品都被同等对待，这一点很优雅：Beancount 本身就是一个多货币系统。如果您像我们中的许多人一样，是一名外籍人士，您的生活被划分在两个或三个大洲之间，您会很欣赏这一点，您可以毫无问题地处理国际账本。
+
+而且你对货币的使用可以变得很有创意：例如，你可以为你的家创建一种货币（如MYLOFT），一种计算累积假期时间的货币（VACHR），或者一种计算每年允许向你的退休账户缴纳的潜在款项的货币（IRAUSD）。你实际上可以通过这种方式解决很多问题。这本[[http://furius.ca/beancount/doc/cookbook][食谱]]描述了许多这样的具体例子。
+
+Beancount不支持美元符号语法，例如，"$120.00"。你应该在你的输入文件中始终使用货币名称。这使输入更有规律，是一种设计选择。对于货币单位，我建议你使用标准的[[http://en.wikipedia.org/wiki/ISO_4217#Active_codes][ISO 4217货币代码]]作为准则；这些代码很快就会变得熟悉。然而，如上所述，您可以在货币名称中包含一些其他字符，如下划线（_）、破折号（-）、句号（.）或单引号（'），但不能有空格。
+
+最后，你会注意到，存在一个 =commodity= 指令，可以用来声明货币。它是完全可选的：货币在你使用它们时就会出现，该指令的目的只是为了给它附加元数据。
+
+** 字符串
+每当我们需要插入一些文本作为条目的一部分时，应该用双引号将其包围。这主要适用于收款人和叙述字段；基本上任何不是日期、数字、货币、账户名的东西。
+
+字符串可以被分割成多行。(有多行的字符串将包括它们的换行字符，在渲染时需要相应地处理这些字符)。
+
+** 注释
+Beancount输入文件并不打算只包含你的指令：你可以在其中自由地放置注释和标题来组织你的文件。任何在字符“;”之后的文本都会被忽略，像这样的文本。
+#+begin_src beancount
+; I paid and left the taxi, forgot to take change, it was cold.
+2015-01-01 * "Taxi home from concert in Brooklyn"
+  Assets:Cash      -20 USD  ; inline comment
+  Expenses:Taxi
+#+end_src
+
+如果你愿意，你可以使用一个或多个“;”字符。如果你想输入更大的注释文本，请在所有行上预置。如果你希望注释文本被解析并呈现在你的期刊中，请参见本文档中其他地方的注释指令。
+
+任何不是以有效的 Beancount 语法指令开始的行（例如：以日期开始）都会被默默地忽略。这样，你就可以插入标记来组织你的文件，以适应各种大纲模式，例如 Emacs 中的 [[http://orgmode.org/][org 模式]]。例如，你可以像这样按机构组织你的输入文件，并独立地折叠和展开每个部分：
+#+begin_src beancount
+\* Banking
+\** Bank of America
+
+2003-01-05 open Assets:US:BofA:Checking
+2003-01-05 open Assets:US:BofA:Savings
+
+;; Transactions follow …
+
+\** TD Bank
+
+2006-03-15 open Assets:US:TD:Cash
+
+;; More transactions follow …
+
+#+end_src
+
+不匹配的行被简单地忽略了。
+
+请访问 =Ledger= 的用户注意。在 =Ledger= 中，“;”既可用于标记评论，也可用于在帖子中附加 "Ledger标签"（Beancount元数据），而在Beancount中则不是这样。在Beancount中，注释永远只是注释，元数据有它自己独立的语法。
+
+* 指令
+关于指令语法的快速参考和概述，请查阅[[https://docs.google.com/document/d/1M4GwF6BkcXyVVvj4yXBJMX7YFXpxlxo95W6CpU3uWVc/edit][语法小抄]]。
+** Open
+所有的账户都需要被声明为 =open= ，以便接受向其存入的金额。要做到这一点，你要写一个类似这样的指令：
+#+begin_src beancount
+2014-05-01 open Liabilities:CreditCard:CapitalOne     USD
+#+end_src
+
+=open= 指令的一般格式是：
+#+begin_src beancount
+YYYY-MM-DD open Account [ConstraintCurrency,...]  ["BookingMethod"]
+#+end_src
+
+逗号分隔的约束货币列表，强制要求该账户的所有变化都以声明的货币之一为单位。建议指定一个货币约束：您为Beancount提供的约束越多，您就越不可能犯数据输入错误，因为如果您犯了错误，它就会警告您。
+
+每个账户都应该在一个特定的日期被声明为 =open= ，这个日期要早于（或与）第一个向该账户入账的交易日期相同。明确一点： =open= 指令不一定要出现在文件中的交易之前，而是 =open= 指令的日期必须在该账户的入账日期之前。文件中声明的顺序并不重要。因此，举例来说，这是一个合法的输入文件：
+#+begin_src beancount
+2014-05-05 * "Using my new credit card"
+  Liabilities:CreditCard:CapitalOne         -37.45 USD
+  Expenses:Restaurant
+
+2014-05-01 open Liabilities:CreditCard:CapitalOne     USD
+1990-01-01 open Expenses:Restaurant
+#+end_src
+
+开户的另一个可选的声明是 "预订方法"，这是在减少手数导致库存中的匹配手数选择不明确（0、2或更多手数匹配）时，将调用的算法。目前它可能采取的数值是：
+- STRICT：批次规格必须与一个批次完全匹配。这是默认的方法。如果调用这个预订方法，它将直接引发一个错误。这确保你的输入文件明确地选择了所有匹配的批次。
+- NONE：不进行批量匹配。任何价格的手数都可以接受。允许同一货币的手数有正有负。（类似于Ledger处理匹配的方式......它忽略匹配）。

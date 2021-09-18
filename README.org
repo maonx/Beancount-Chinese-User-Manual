@@ -14,7 +14,7 @@
 - 安装 Beancount: 使用计算机下载和安装的说明，以及软件发布信息。
 - 运行 Beancount 并生成报表：如何运行 Beancount 可执行文件并使用它生成报告。这包含了针对 Beancount 用户的技术信息。
 - [[file:中文文档/Beancount入门指南.org][Beancount 入门指南]]：解释了如何创建、初始化和组织输入文件的基本知识，以及声明账户和添加填充指令的过程。
-- Beancount 语言语法:对语言语法的完整描述和示例。这是 Beancount 语言的主要参考。
+- [[file:中文文档/Beancount语言语法.org][Beancount 语言语法]]:对语言语法的完整描述和示例。这是 Beancount 语言的主要参考。
 - Beancount 选项参考: 对所有可能的选项值的描述和说明。
 - 精度和公差。交易和余额断言可以容忍少量的不精确性，这些不精确性是由上下文推断出来的，本文档解释了这是如何工作的。
 - Beancount 查询语言。Bean-query 命令行客户端工具的高级概述，允许您从 Beancount 分类账文件中提取各种数据表格。
