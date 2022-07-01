@@ -12,6 +12,9 @@
   - [[#注释][注释]]
 - [[#指令-1][指令]]
   - [[#open][Open]]
+  - [[#close][Close]]
+  - [[#commodity][Commodity]]
+  - [[#交易][交易]]
 
 * 简介
 这是一本关于 Beancount 语言的用户手册，它是命令行复式记账系统。Beancount 定义了一种计算机语言，允许你在文本文件中输入财务交易，并从中提取各种报告。它是一种通用的计数工具，可用于多种货币、按成本持有的商品（如股票），甚至允许你跟踪不寻常的东西，如假期时间、航空里程和奖励积分，以及其他任何你可能想要计算的东西，甚至是豆子。
@@ -192,3 +195,190 @@ YYYY-MM-DD open Account [ConstraintCurrency,...]  ["BookingMethod"]
 开户的另一个可选的声明是 "预订方法"，这是在减少手数导致库存中的匹配手数选择不明确（0、2或更多手数匹配）时，将调用的算法。目前它可能采取的数值是：
 - STRICT：批次规格必须与一个批次完全匹配。这是默认的方法。如果调用这个预订方法，它将直接引发一个错误。这确保你的输入文件明确地选择了所有匹配的批次。
 - NONE：不进行批量匹配。任何价格的手数都可以接受。允许同一货币的手数有正有负。（类似于Ledger处理匹配的方式......它忽略匹配）。
+
+** Close
+与 =open= 指令类似，有一个 =close= 指令可以用来告诉 Beancount 某个帐户已变为非活动状态，例如:
+#+begin_src beancount
+; Closing credit card after fraud was detected.
+2016-11-28 close Liabilities:CreditCard:CapitalOne
+#+end_src
+close 指令的一般格式是:
+#+begin_src beancount
+YYYY-MM-DD close Account
+#+end_src
+这个指令有几种用法:
+ - 如果您在该帐户的截止日期之后发布数额(这是一个完整性检查) ，则会引发错误消息。这有助于避免数据输入错误。
+ - 它可以帮助报告代码找出哪些账户仍在活动，并过滤掉报告期以外的已关闭账户。当你的分类账随着时间的推移积累了很多数据时，这一点尤其有用，因为会有一些账户停止存在，而你不想在其关闭后的几年内看到报告。
+请注意，关闭指令目前并不产生一个隐含的零余额检查。你可能想在关闭日期前添加一个，以确保账户被正确关闭，内容为空。
+目前，一旦一个账户被关闭，你就不能在该日期后重新打开它。(当然，你可以删除或注释掉关闭它的指令）。最后，代码中还有一些实用功能，允许你确定哪些账户在某个特定日期是开放的。我强烈建议你在账户实际关闭时关闭它们，这将使你的账本更加整洁。
+** Commodity
+有一个 =commodity= 指令，可以用来申报货币、金融工具、商品（在Beancount中对同一事物的不同称呼）。
+#+begin_src beancount
+1867-07-01 commodity CAD
+#+end_src
+=commodity= 指令的一般格式是:
+#+begin_src beancount
+YYYY-MM-DD commodity Currency
+#+end_src
+这个指令姗姗来迟，而且完全是可有可无的：你可以使用货币，而不必真的这样声明它们。这个指令的目的是在其上附加货币特定的元数据字段，以便以后可以由插件收集。例如，你可能想为每个货币提供一个长的描述性名称，比如“瑞士法郎”代表货币 "CHF"，或者 "Hooli Corporation Class C Shares " 代表 "HOOL"，像这样：
+#+begin_src beancount
+1867-07-01 commodity CAD
+  name: "Canadian Dollar"
+  asset-class: "cash"
+
+2012-01-01 commodity HOOL
+  name: "Hooli Corporation Class C Shares"
+  asset-class: "stock"
+#+end_src
+例如，一个插件可以收集元数据属性名称，并按资产类别进行一些汇总。
+你可以对一个货币使用任何日期......但一个相关的日期是它被创造或引入的日期，例如，加元是在1867年首次引入的，ILS（新以色列谢克尔）是自1986-01-01开始使用的。对于一个公司来说，公司成立和股份创建的日期可能是一个好的日期。由于本指令的主要目的是收集每个货币的信息，你选择的特定日期并不重要。
+同一商品申报两次是一个错误。
+** 交易
+交易是分类账中最常见的指令类型。它们与其他指令略有不同，因为它们后面可以有一个过账清单。下面是一个例子：
+#+begin_src beancount
+2014-05-05 txn "Cafe Mogador" "Lamb tagine with wine"
+  Liabilities:CreditCard:CapitalOne         -37.45 USD
+  Expenses:Restaurant
+#+end_src
+与其他所有指令一样，交易指令以 =YYY-MM-DD= 格式的日期开始，后面是指令名称，在这里是 "txn"。 然而，由于交易是我们复式系统存在的理由，因此是迄今为止最常见的指令类型，应该出现在Beancount输入文件中，我们做了一个特例，允许用户省略 "txn "关键字，只使用一个标志来代替它:
+#+begin_src beancount
+2014-05-05 * "Cafe Mogador" "Lamb tagine with wine"
+  Liabilities:CreditCard:CapitalOne         -37.45 USD
+  Expenses:Restaurant
+#+end_src
+标志是用来表示交易的状态，标志的具体含义由你来定义。我们建议对其使用以下解释:
+ - *: 已完成的交易，已知金额，"这看起来是正确的"。
+ - !: 不完整的交易，需要确认或修改，"这看起来不正确"。
+在第一个例子中，使用 =txn= 使交易不被标记，默认的标志 =*= 将被设置在交易对象上。(我几乎总是使用 =*= 的变体，从不使用关键字，这主要是为了与所有其他指令格式保持一致）。
+如果你想特别标记交易的一个分支，你也可以在发布内容本身附加标志:
+#+begin_src beancount
+2014-05-05 * "Transfer from Savings account"
+  Assets:MyBank:Checking            -400.00 USD
+  ! Assets:MyBank:Savings
+#+end_src
+这在去掉交易的中间阶段是很有用的（详见[[org:Beancount中文用户手册/中文文档/Beancount入门指南.org][《入门指南》]]）。
+
+交易指令的一般格式是：
+#+begin_example
+YYYY-MM-DD [txn|Flag] [[Payee] Narration]
+   [Flag] Account       Amount [{Cost}] [@ Price]
+   [Flag] Account       Amount [{Cost}] [@ Price]
+   ...
+#+end_example
+第一行之后的几行是 "过账"。你可以在一个交易中附加任意多的过帐。例如，一个工资条目可能是这样的:
+#+begin_src beancount
+2014-03-19 * "Acme Corp" "Bi-monthly salary payment"
+  Assets:MyBank:Checking             3062.68 USD     ; Direct deposit
+  Income:AcmeCorp:Salary            -4615.38 USD     ; Gross salary
+  Expenses:Taxes:TY2014:Federal       920.53 USD     ; Federal taxes
+  Expenses:Taxes:TY2014:SocSec        286.15 USD     ; Social security
+  Expenses:Taxes:TY2014:Medicare       66.92 USD     ; Medicare
+  Expenses:Taxes:TY2014:StateNY       277.90 USD     ; New York taxes
+  Expenses:Taxes:TY2014:SDI             1.20 USD     ; Disability insurance
+#+end_src
+“过帐”中的金额也可以是一个算术表达式，使用 =( ) * / - += 。比如:
+#+begin_src beancount
+2014-10-05 * "Costco" "Shopping for birthday"
+  Liabilities:CreditCard:CapitalOne         -45.00          USD
+  Assets:AccountsReceivable:John            ((40.00/3) + 5) USD
+  Assets:AccountsReceivable:Michael         40.00/3         USD
+  Expenses:Shopping
+#+end_src
+对过账的关键和唯一的限制是其余额之和必须为零。这一点将在下文中详细解释。
+
+*** 元数据
+也可以将元数据附加到交易和（或）其任何过帐上，所以完全通用的格式是：
+#+begin_example
+YYYY-MM-DD [txn|Flag] [[Payee] Narration]
+   [Key: Value]
+   ...
+   [Flag] Account       Amount [{Cost}] [@ Price]
+      [Key: Value]
+      ...
+   [Flag] Account       Amount [{Cost}] [@ Price]
+      [Key: Value]
+      ...
+   ...
+
+#+end_example
+请参阅下面关于元数据的专门章节。
+*** 收款人和叙述
+一项交易可以有一个可选的“收款人”和（或）“叙述”。在上面的第一个例子中，收款人是 "Cafe Mogador"，叙述是 "Lamb tagine with wine"。
+收款人是一个字符串，代表参与交易的一个外部实体。收款人有时在交易中很有用，它将金额记入支出账户，账户中累积了来自多个企业的费用类别。一个很好的例子是 "Expenses:Restaurant"，它将包括一个人可能访问的各种餐厅的所有过账。
+叙述是你写的关于交易的描述。它可以是对背景的评论，陪同你的人，关于你买的产品的一些说明......任何你想要的东西。你可以插入任何你喜欢的东西，我喜欢在对账时插入备注，这很便捷，而且我可以在以后参考我的备注，例如回答 "去年冬天我和安德烈亚斯在西区参观的那个很棒的小寿司店叫什么名字？"
+如果你在交易行上放置一个单一的字符串，它就会成为其叙述：
+#+begin_src beancount
+2014-05-05 * "Lamb tagine with wine"
+   …
+#+end_src
+
+如果你只想设置一个收款人，放一个空的旁白字符串:
+#+begin_src beancount
+2014-05-05 * "Cafe Mogador" ""
+   …
+#+end_src
+出于传统的原因，在这些字符串之间可以接受一个管道符号（"|"）（但这将在未来的某个时候被删除）。
+#+begin_src beancount
+2014-05-05 * "Cafe Mogador" | ""
+   …
+#+end_src
+您也可以省略以下任一选项(但必须提供一个标志) :
+#+begin_src beancount
+2014-05-05 *
+   …
+#+end_src
+*Ledger 用户注意事项* Ledger 没有单独的叙述和收款人字段，它只有一个字段，由“收款人”元数据标记引用，叙述最终以保存的注释(“持久性注释”)结束。在 Beancount 中，一个交易对象只有两个字段: 收款人和叙述，其中收款人在很多时候恰好是一个空值。
+或更深入地讨论如何以及何时使用受款人或不使用受款人，请参阅 [[http://furius.ca/beancount/doc/payees][Payees, Subaccounts, and Assets.]]
+*** 成本及价格
+过账是指从一个账户中存入或提取的单一金额。最简单的过账类型只包括其金额：
+#+begin_src beancount
+2012-11-03 * "Transfer to pay credit card"
+  Assets:MyBank:Checking            -400.00 USD
+  Liabilities:CreditCard             400.00 USD
+#+end_src
+如果你从另一种货币转换金额，你必须提供一个转换率来平衡交易（见下一节）。这是通过在过帐时附加一个“价格”来完成的，这个价格就是转换率：
+#+begin_src beancount
+2012-11-03 * "Transfer to account in Canada"
+  Assets:MyBank:Checking            -400.00 USD @ 1.09 CAD
+  Assets:FR:SocGen:Checking          436.01 CAD
+#+end_src
+您还可以使用 =@@= 语法来指定总成本:
+#+begin_src beancount
+2012-11-03 * "Transfer to account in Canada"
+  Assets:MyBank:Checking            -400.00 USD @@ 436.01 CAD
+  Assets:FR:SocGen:Checking          436.01 CAD
+#+end_src
+Beancount 会自动计算出每单位的价格，即1.090025加元（注意，最后两个小数的精度会有所不同）。
+在交易之后，我们对跟踪存入账户的美元单位的汇率不感兴趣：这些“美元”单位只是被存入。从某种意义上说，它们的转换率已经被遗忘。
+
+然而，你存入账户的一些商品必须 "按成本持有"。当你想跟踪这些商品的成本基础时，就会发生这种情况。典型的使用情况是投资，例如，当你在一个账户中存入股票时。在这种情况下，你想要的是将你存入的商品的收购成本附在这些单位上，这样当你以后移除这些单位时（当你卖出时），你应该能够通过成本来确定移除哪些单位，以控制税收的影响（并避免错误）。你可以想象，对于账户中的每个单位，都有一个附加的成本基础。这将使我们以后能够自动计算资本收益。
+
+为了指定一个账户的过账要以特定的成本持有，将成本放在大括号里。
+#+begin_src beancount
+2014-02-11 * "Bought shares of S&P 500"
+  Assets:ETrade:IVV                10 IVV {183.07 USD}
+  Assets:ETrade:Cash         -1830.70 USD
+#+end_src
+这是一个更深入讨论的主题。请参考“[[http://furius.ca/beancount/doc/booking][库存如何运作]]”和“[[org:Beancount中文用户手册/中文文档/使用Beancount进行交易.org][使用Beancount进行交易]]”文件，以深入讨论这些主题。
+
+最后，你可以在过帐上同时包括成本和价格。
+#+begin_src beancount
+2014-07-11 * "Sold shares of S&P 500"
+  Assets:ETrade:IVV               -10 IVV {183.07 USD} @ 197.90 USD
+  Assets:ETrade:Cash          1979.90 USD
+  Income:ETrade:CapitalGains
+#+end_src
+该价格只用于在价格数据库中插入一个价格条目（见下面的价格部分）。在本文件的“平衡发布”部分将详细讨论这个问题。
+
+*重要提示：* 指定为每份或总价格或成本的金额总是无符号的。使用负号或负成本是一个错误，如果您试图这样做，Beancount将引发一个错误。
+*** 平衡规则--过帐的 "重量"
+复式记账法的一个关键方面是确保所有货币的记账金额之和等于零。这是产生会计等式的核心、不可协商的条件，并使其有可能过滤任何交易的子集，得出平衡为零的资产负债表。
+但是随着不同类型的单位、先前引入的价格转换和 "按成本持有 "的单位，这一切意味着什么呢？
+这很简单：我们设计了一个简单明了的规则，从每条过帐中获得一个数额和一种货币，用于平衡它们。我们称其为过帐的“权重”或平衡金额。下面是一个从使用四种可能的成本/价格组合的过账中获得权重的简短例子：
+#+begin_example
+YYYY-MM-DD
+  Account       10.00 USD                       -> 10.00 USD
+  Account       10.00 CAD @ 1.01 USD            -> 10.10 USD
+  Account       10 SOME {2.02 USD}              -> 20.20 USD
+  Account       10 SOME {2.02 USD} @ 2.50 USD   -> 20.20 USD
+#+end_example
